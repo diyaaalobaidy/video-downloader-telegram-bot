@@ -5,7 +5,13 @@ import random
 import string
 import yt_dlp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
+    ContextTypes,
+)
 import dotenv
 
 dotenv.load_dotenv()
@@ -16,11 +22,15 @@ API_HASH = os.getenv("API_HASH")
 LOCAL_API_URL = os.getenv("LOCAL_API_URL", "http://localhost:8081")
 
 PROXY_URL = os.getenv("PROXY_URL", "")
+if PROXY_URL and ("{username}" in PROXY_URL) and ("{password}" in PROXY_URL):
+    username = random.choices(string.ascii_letters + string.digits, k=8)
+    password = random.choices(string.ascii_letters + string.digits, k=8)
+    PROXY_URL = PROXY_URL.format(username=username, password=password)
 
 YDL_BASE_OPTS = {
-    'quiet': True,
-    'extractor_args': {'youtube': {'js_runtimes': ['nodejs']}},
-    **(({'proxy': PROXY_URL}) if PROXY_URL else {}),
+    "quiet": True,
+    "extractor_args": {"youtube": {"js_runtimes": ["nodejs"]}},
+    **(({"proxy": PROXY_URL}) if PROXY_URL else {}),
 }
 
 
@@ -32,32 +42,34 @@ def fetch_info(url):
 def do_download(url, fmt_selector, is_audio, out_path):
     opts = {
         **YDL_BASE_OPTS,
-        'format': fmt_selector,
-        'outtmpl': out_path,
+        "format": fmt_selector,
+        "outtmpl": out_path,
         # No size limit — local Bot API server supports up to 2 GB
     }
     if is_audio:
-        opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
+        opts["postprocessors"] = [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ]
     else:
-        opts['merge_output_format'] = 'mp4'
+        opts["merge_output_format"] = "mp4"
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.extract_info(url, download=True)
 
     if is_audio:
-        return os.path.splitext(out_path)[0] + '.mp3'
+        return os.path.splitext(out_path)[0] + ".mp3"
     return out_path
 
 
 def make_caption(info, label):
-    title = info.get('title', '')
-    uploader = info.get('uploader', '') or info.get('channel', '')
-    duration = info.get('duration')
-    view_count = info.get('view_count')
+    title = info.get("title", "")
+    uploader = info.get("uploader", "") or info.get("channel", "")
+    duration = info.get("duration")
+    view_count = info.get("view_count")
 
     lines = [f"📹 *{title}*"]
     if uploader:
@@ -83,18 +95,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         loop = asyncio.get_running_loop()
         info = await loop.run_in_executor(None, fetch_info, url)
-        formats = info.get('formats', [])
+        formats = info.get("formats", [])
 
         # Deduplicate video qualities by height
         seen_heights = set()
         options = []
         video_fmts = sorted(
-            [f for f in formats if f.get('vcodec') != 'none' and f.get('height')],
-            key=lambda f: f['height'],
+            [f for f in formats if f.get("vcodec") != "none" and f.get("height")],
+            key=lambda f: f["height"],
             reverse=True,
         )
         for f in video_fmts:
-            h = f['height']
+            h = f["height"]
             if h in seen_heights:
                 continue
             seen_heights.add(h)
@@ -106,20 +118,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         options.append(("🎵 Audio only (MP3)", "bestaudio/best", True))
 
-        context.user_data['url'] = url
-        context.user_data['options'] = options
-        context.user_data['info'] = info
+        context.user_data["url"] = url
+        context.user_data["options"] = options
+        context.user_data["info"] = info
 
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton(label, callback_data=f"dl:{i}")]
-            for i, (label, _, _) in enumerate(options)
-        ])
+        keyboard = InlineKeyboardMarkup(
+            [
+                [InlineKeyboardButton(label, callback_data=f"dl:{i}")]
+                for i, (label, _, _) in enumerate(options)
+            ]
+        )
 
-        title = info.get('title', 'Video')
+        title = info.get("title", "Video")
         await status_msg.edit_text(
             f"📹 *{title}*\n\nSelect quality:",
             reply_markup=keyboard,
-            parse_mode='Markdown',
+            parse_mode="Markdown",
         )
 
     except Exception as e:
@@ -131,9 +145,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     idx = int(query.data.split(":")[1])
-    url = context.user_data.get('url')
-    options = context.user_data.get('options', [])
-    info = context.user_data.get('info', {})
+    url = context.user_data.get("url")
+    options = context.user_data.get("options", [])
+    info = context.user_data.get("info", {})
 
     if not url or idx >= len(options):
         await query.edit_message_text("❌ Session expired. Please send the URL again.")
@@ -145,7 +159,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Use a short hash as the filename to avoid path-too-long errors
         name_hash = hashlib.md5(url.encode()).hexdigest()[:12]
-        ext = 'mp3' if is_audio else 'mp4'
+        ext = "mp3" if is_audio else "mp4"
         out_path = f"downloads/{name_hash}.{ext}"
 
         loop = asyncio.get_running_loop()
@@ -155,26 +169,26 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Handle possible .part leftover
         if not os.path.exists(file_path):
-            part = file_path + '.part'
+            part = file_path + ".part"
             if os.path.exists(part):
                 os.rename(part, file_path)
 
         caption = make_caption(info, label)
 
         if is_audio:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 await query.message.reply_audio(
                     audio=f,
                     caption=caption,
-                    parse_mode='Markdown',
+                    parse_mode="Markdown",
                     write_timeout=1000,
                 )
         else:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 await query.message.reply_video(
                     video=f,
                     caption=caption,
-                    parse_mode='Markdown',
+                    parse_mode="Markdown",
                     write_timeout=1000,
                 )
 
@@ -187,8 +201,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     global PROXY_URL
-    if not os.path.exists('downloads'):
-        os.makedirs('downloads')
+    if not os.path.exists("downloads"):
+        os.makedirs("downloads")
 
     builder = (
         Application.builder()
@@ -198,17 +212,14 @@ def main():
         .local_mode(True)
     )
     if PROXY_URL:
-        if ("{username}" in PROXY_URL) and ("{password}" in PROXY_URL):
-            username = random.choices(string.ascii_letters + string.digits, k=8)
-            password = random.choices(string.ascii_letters + string.digits, k=8)
-            PROXY_URL = PROXY_URL.format(username=username, password=password)
         builder = builder.proxy(PROXY_URL)
     app = builder.build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(handle_callback, pattern=r'^dl:'))
+    app.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^dl:"))
 
     print("Bot is running...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
