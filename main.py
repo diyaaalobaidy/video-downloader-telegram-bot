@@ -30,8 +30,10 @@ if os.getenv("PROXY", "") == "tor":
 YDL_BASE_OPTS = {
     "quiet": True,
     "extractor_args": {"youtube": {"js_runtimes": ["nodejs"]}},
-    **(({"proxy": PROXY_URL}) if PROXY_URL else {}),
 }
+
+if os.getenv("PROXY", "") == "tor":
+    YDL_BASE_OPTS["proxy"] = PROXY_URL
 
 
 def fetch_info(url):
