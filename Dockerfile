@@ -1,8 +1,7 @@
 FROM python:3.12-slim
 
-RUN ping deb.debian.org
 # Install system dependencies: ffmpeg for audio/video processing, nodejs for yt-dlp
-RUN rm -rf /var/lib/apt/lists/* && apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     nodejs \
     && rm -rf /var/lib/apt/lists/*
