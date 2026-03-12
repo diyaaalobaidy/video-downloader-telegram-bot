@@ -1,6 +1,8 @@
 import os
 import asyncio
 import hashlib
+import random
+import string
 import yt_dlp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters, ContextTypes
@@ -13,9 +15,13 @@ API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 LOCAL_API_URL = os.getenv("LOCAL_API_URL", "http://localhost:8081")
 
+_proxy_env = os.getenv("PROXY", "").strip()
+PROXY_URL = "socks5://127.0.0.1:9050" if _proxy_env.lower() == "tor" else (_proxy_env or None)
+
 YDL_BASE_OPTS = {
     'quiet': True,
     'extractor_args': {'youtube': {'js_runtimes': ['nodejs']}},
+    **(({'proxy': PROXY_URL}) if PROXY_URL else {}),
 }
 
 
@@ -184,14 +190,20 @@ def main():
     if not os.path.exists('downloads'):
         os.makedirs('downloads')
 
-    app = (
+    builder = (
         Application.builder()
         .token(BOT_TOKEN)
         .base_url(f"{LOCAL_API_URL}/bot")
         .base_file_url(f"{LOCAL_API_URL}/file/bot")
         .local_mode(True)
-        .build()
     )
+    if PROXY_URL:
+        if ("{username}" in PROXY_URL) and ("{password}" in PROXY_URL):
+            username = random.choices(string.ascii_letters + string.digits, k=8)
+            password = random.choices(string.ascii_letters + string.digits, k=8)
+            PROXY_URL = PROXY_URL.format(username=username, password=password)
+        builder = builder.proxy(PROXY_URL)
+    app = builder.build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_callback, pattern=r'^dl:'))
 
