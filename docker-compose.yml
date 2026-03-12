@@ -11,7 +11,9 @@ services:
       - telegram-bot-api-data:/var/lib/telegram-bot-api
 
   bot:
-    build: .
+    build:
+      context: .
+      network: host
     dns:
       - 8.8.8.8
       - 8.8.4.4
