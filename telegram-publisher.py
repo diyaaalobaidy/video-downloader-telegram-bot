@@ -21,10 +21,10 @@ PERIODIC_CHECK = False
 ENGLISH_FEEDS = {
     "Science Daily": "https://www.sciencedaily.com/rss/all.xml",
     "Science": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv",
-    "Science - Robotics": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=scirobotics",
+    "Science Robotics": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=scirobotics",
     "Knowable Magazine": "https://knowablemagazine.org/rss",
-    "The Guardian - Science": "https://www.theguardian.com/science/rss",
-    "NPR - Science": "https://feeds.npr.org/1007/rss.xml",
+    "The Guardian Science": "https://www.theguardian.com/science/rss",
+    "NPR Science": "https://feeds.npr.org/1007/rss.xml",
 }
 
 ARABIC_FEEDS ={
